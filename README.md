@@ -1,97 +1,60 @@
 # CT Playground
 
-A collection of experiments around Computed Tomography (CT) reconstruction using various techniques.
+A repository for experimenting with Computed Tomography (CT) reconstruction techniques, focusing on the comparison between different implementations of the Radon transform.
+
+## Fourier-Based CT Reconstruction
+
+The main focus of this repository is exploring different approaches to CT reconstruction, particularly comparing the Fourier Slice Theorem-based implementation with traditional methods.
+
+### tigre_vs_ft.ipynb
+
+This notebook implements and compares three different methods for computing the Radon transform (sinogram generation) for CT reconstruction:
+
+For detailed analysis of how 1D projections align at different angles, refer to the `scikit_vs_our.ipynb` notebook (cell 4), which demonstrates excellent alignment between our Fourier method and scikit-image's radon transform across multiple projection angles. The visualizations confirm that both implementations produce nearly identical projection profiles, validating the mathematical correctness of our Fourier Slice implementation.
+
+1. **Fourier Slice Theorem (FFT-based)**: A custom implementation that uses the Fourier Slice Theorem to compute projections in the frequency domain using PyTorch.
+2. **scikit-image Radon**: Uses scikit-image's radon transform implementation.
+3. **TIGRE GPU-accelerated**: Employs the TIGRE toolkit's GPU-accelerated projection algorithm.
+
+#### Key Features
+
+- Custom Shepp-Logan phantom generator that allows flexible resolution settings
+- PyTorch-based implementation of the Fourier Slice Theorem for fast Radon transform
+- GPU acceleration for both the Fourier method and TIGRE implementation
+- Direct visual and running time comparison of sinograms from all three methods
+
+#### Results
+
+The Fourier method shows alignment with both scikit-image and TIGRE versions in terms of sinogram similarity. 
+
+#### Performance
+
+Performance benchmarks from the notebook using a T4 GPU on a custom Shepp-Logan phantom (1024×1024 resolution):
+
+```
+Time taken for FFT Radon transform (device: cuda): 0.0592 seconds
+Time taken for skimage Radon transform: 5.8786 seconds
+Time taken for TIGRE Radon transform: 0.1634 seconds
+```
+
+The Fourier Slice Theorem implementation achieves the fastest performance, outperforming even the GPU-accelerated TIGRE implementation, while maintaining comparable accuracy up to some artifacts possibly coming from interpolation on freq domain.
+
+#### Implementation Details
+
+- A custom Shepp-Logan phantom generator function is implemented to automatically set resolution as needed
+- The FFT-based method uses PyTorch's grid_sample for better interpolation in the frequency domain
+- All experiments were conducted on a T4 GPU with a 1024×1024 resolution phantom
 
 ## Repository Structure
 
-- `baby-ct/` - Basic CT reconstruction experiments using neural networks and classical approaches
-- `reverse-fourier-slice/` - Experiments comparing real-space CT projection with Fourier slice theorem implementation
-
-## Baby CT Experiments (`baby-ct/retrivial.ipynb`)
-
-This notebook contains three basic experiments on image reconstruction:
-
-### 1. Phase Retrieval with MNIST
-
-- **Mathematical Formulation**: 
-  - Forward model: y_m = | ⟨a_m, x⟩ |² where:
-    - x ∈ ℝⁿ is the flattened image vector (784 dimensions)
-    - a_m are random Gaussian measurement vectors
-    - y_m are the squared magnitudes of the measurements
-  - The problem of recovering x from y is called "phase retrieval"
-
-- **Implementation**:
-  - Uses a subset of MNIST (5000 training, 1000 test images)
-  - Random Gaussian sensing matrix A with 200 measurements per image
-  - Neural network with architecture: Linear(200→512) → ReLU → Linear(512→512) → ReLU → Linear(512→784) → Sigmoid
-
-- **Results**: The network learns to reconstruct the original images from phase-less measurements, demonstrated with visual examples.
-
-### 2. CT Reconstruction from Sinograms using Neural Networks
-
-- **Mathematical Formulation**:
-  - Forward model: y = Rx where:
-    - R represents the Radon transform operator
-    - x is the 2D image (Shepp-Logan phantom with variations)
-    - y is the sinogram measurement
-  - Network learns the inverse mapping: x̂ = f_θ(y)
-
-- **Implementation**:
-  - Generates varied Shepp-Logan phantoms with random rotations, shifts, and intensity scaling
-  - Simulates CT measurements via the Radon transform across multiple angles
-  - Network architecture: Linear(input_dim→1024) → ReLU → Linear(1024→1024) → ReLU → Linear(1024→output_dim) → Sigmoid
-
-- **Results**: Visual comparison between true phantoms and the network's reconstructions.
-
-### 3. Filtered Back-Projection (FBP)
-
-- **Mathematical Formulation**:
-  - Based on the inverse Radon transform formula:
-    - x(r,φ) = ∫₀ᵗ R⁻¹{g(t,θ)} dθ
-    - Where R⁻¹ applies ramp filtering in the frequency domain and backprojects the result
-
-- **Implementation**:
-  - Uses a single Shepp-Logan phantom
-  - Computes the sinogram using the Radon transform
-  - Applies filtered back-projection using the iradon function
-  - Visualizes the original image, sinogram, and reconstruction
-
-## Reverse Fourier Slice Comparison (`reverse-fourier-slice/tigre_vs_reverse_fourier.ipynb`)
-
-This notebook explores the relationship between the Radon transform and the Fourier slice theorem as we discussed 2 weeks ago.
-
-- **Mathematical Foundation**:
-  The Fourier Slice Theorem states that the 1D Fourier transform of a projection at angle θ equals a slice through the 2D Fourier transform of the image at the same angle.
-  
-  Mathematically: ℱ₁{Rₓf(t,θ)} = ℱ₂{f}(ω·cos θ, ω·sin θ)
-
-- **Implementation Details**:
-  1. Loads and pads a Shepp-Logan phantom
-  2. Computes the 2D FFT of the padded image
-  3. For a range of angles (10° to 170° in 10° increments):
-     - Computes the real-space projection using TIGRE (and skimage.radon for validation as it looks more promising)
-     - Extracts a line from the 2D FFT at the same angle
-     - Applies a 1D inverse FFT to get a projection
-     - Compares both methods visually and using MSE
-
-- **Sinogram Comparison**:
-  - Builds complete sinograms (0° to 179°) using both methods
-  - Visualizes and compares the resulting sinograms side-by-side
-
-- **Results**: 
-  The sinogram generated by TIGRE doesn't match the expected patterns seen in standard CT papers, suggesting that parameter adjustments are needed for the TIGRE geometry configuration. 
-  
-  However, the Fourier slice method produces a visually correct sinogram. The 1D projections from scikit-image and our Fourier slice method show some agreement at some angles, with some phase differences coming from interpolation issues during the 2D Fourier domain slicing.
-  
-  Future improvements include:
-  - Adjusting TIGRE parameters to produce more accurate real-space projections using TIGRE instead of scikit-image
-  - Increasing frequency resolution in FFT operations to reduce possible errors coming from the slcing operation in 2D frequency domain
-  - Developing a more precise slicing method for the 2D frequency domain
+- `baby-ct/` - Neural network and classical approaches to CT reconstruction
+- `reverse-fourier-slice/` - Comparison of real-space CT projection with Fourier slice theorem
+- `TIGRE/` - TIGRE toolkit for GPU-accelerated CT reconstruction (i did some changes on visualization scripts fo non-gui instances)
 
 ## Dependencies
 
 - PyTorch
 - NumPy
 - scikit-image
-- TIGRE (for the Fourier slice experiments)
+- TIGRE
 - Matplotlib
